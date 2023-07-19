@@ -1,4 +1,60 @@
+import { useState } from 'react'
+import BaseService from '../../config/BaseService'
+import { redirect } from 'react-router-dom'
+
 const Register = () => {
+  const [registerData, setRegisterData] = useState({
+    email: '',
+    password: '',
+    name: '',
+  })
+
+  const handlePasswordChange = (event: any) => {
+    setRegisterData({
+      email: registerData.email,
+      password: event.target.value,
+      name: registerData.name,
+    })
+  }
+
+  const handleEmailChange = (event: any) => {
+    setRegisterData({
+      email: event.target.value,
+      password: registerData.password,
+      name: registerData.name,
+    })
+  }
+
+  const handleNameChange = (event: any) => {
+    setRegisterData({
+      email: registerData.email,
+      password: registerData.password,
+      name: event.target.value,
+    })
+  }
+
+  const register = async () => {
+    const res = BaseService('auth/signup')
+      .json(registerData)
+      .post() as Promise<{
+      data: { token: string; uuid: string; email: string; name: string }
+    }>
+
+    const data = await res
+      .then((value) => {
+        return value.data
+      })
+      .catch((error) => {
+        return error
+      })
+
+    if (data) {
+      redirect('/login')
+    } else {
+      alert('Something error in registration')
+    }
+  }
+
   return (
     <div className="h-screen md:flex w-screen w-full">
       <div className="relative overflow-hidden md:flex w-1/2 bg-gradient-to-tr from-blue-800 to-purple-700 i justify-around items-center hidden">
@@ -33,9 +89,9 @@ const Register = () => {
               fill="currentColor"
             >
               <path
-                fill-rule="evenodd"
+                fillRule="evenodd"
                 d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                clip-rule="evenodd"
+                clipRule="evenodd"
               />
             </svg>
             <input
@@ -43,6 +99,7 @@ const Register = () => {
               type="text"
               name=""
               id=""
+              onChange={handleNameChange}
               placeholder="Full name"
             />
           </div>
@@ -67,6 +124,7 @@ const Register = () => {
               name=""
               id=""
               placeholder="Email Address"
+              onChange={handleEmailChange}
             />
           </div>
           <div className="flex items-center border-2 py-2 px-3 rounded-2xl">
@@ -77,9 +135,9 @@ const Register = () => {
               fill="currentColor"
             >
               <path
-                fill-rule="evenodd"
+                fillRule="evenodd"
                 d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                clip-rule="evenodd"
+                clipRule="evenodd"
               />
             </svg>
             <input
@@ -88,37 +146,24 @@ const Register = () => {
               name=""
               id=""
               placeholder="Password"
+              onChange={handlePasswordChange}
             />
           </div>
-          <div className="flex items-center border-2 py-2 px-3 rounded-2xl mt-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-gray-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            <input
-              className="pl-2 outline-none border-none bg-white"
-              type="text"
-              name=""
-              id=""
-              placeholder="Confirm Password"
-            />
-          </div>
+
           <button
-            type="submit"
+            onClick={register}
+            type="button"
             className="block w-full bg-indigo-600 mt-4 py-2 rounded-2xl text-white font-semibold mb-2"
           >
             Register
           </button>
-          <span className="text-sm ml-2 hover:text-blue-500 cursor-pointer">
-            Forgot Password ?
+          <span
+            onClick={() => {
+              window.location.replace('/login')
+            }}
+            className="text-sm ml-2 hover:text-blue-500 cursor-pointer text-center w-full block pt-2"
+          >
+            Login
           </span>
         </form>
       </div>

@@ -1,9 +1,26 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import '../../App.css'
 
 const Home: React.FC = () => {
-  console.log('data')
-  return (
+  const [uuid, setUuid] = useState('')
+  const [name, setName] = useState('')
+  const [token, setToken] = useState('')
+
+  useEffect(() => {
+    checkUserLogin()
+  }, [])
+
+  const checkUserLogin = () => {
+    setUuid(localStorage.getItem('uuid') || '')
+    setName(localStorage.getItem('name') || '')
+    setToken(localStorage.getItem('token') || '')
+
+    if (token === '') {
+      window.location.replace('/login')
+    }
+  }
+
+  return token ? (
     <div className="flex h-screen antialiased text-gray-800">
       <div className="flex flex-row h-full w-full overflow-x-hidden">
         <div className="flex flex-col py-8 pl-6 pr-2 w-64 bg-white flex-shrink-0">
@@ -250,7 +267,7 @@ const Home: React.FC = () => {
         </div>
       </div>
     </div>
-  )
+  ) : null
 }
 
 export default Home
