@@ -5,6 +5,11 @@ const Home: React.FC = () => {
   const [uuid, setUuid] = useState('')
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
+  const [socket, setSocket] = useState(null as WebSocket | null)
+
+  const [users, setUsers] = useState(
+    [] as { name: string; status: string; uuid: string; email: string }[],
+  )
 
   useEffect(() => {
     checkUserLogin()
@@ -15,9 +20,51 @@ const Home: React.FC = () => {
     setName(localStorage.getItem('name') || '')
     setToken(localStorage.getItem('token') || '')
 
-    if (token === '') {
+    if (localStorage.getItem('token') === '') {
       window.location.replace('/login')
+    } else {
+      connectWebsocket()
     }
+  }
+
+  var ws: WebSocket | null = null
+  const connectWebsocket = () => {
+    ws = new WebSocket(
+      'ws://localhost:3000/message?chat=' + localStorage.getItem('uuid'),
+    )
+
+    ws.onopen = function (res) {
+      console.log('Websocket connection established', res)
+      setSocket(ws)
+    }
+
+    ws.onerror = function (event) {
+      console.log('WebSocket error:', event)
+    }
+
+    ws.onclose = function () {
+      console.log('WebSocket connection closed')
+    }
+
+    ws.onmessage = function (event) {
+      const message = event.data
+      const data: any = JSON.parse(message)
+      if (data?.action === 'user-online') {
+        setUsers(data?.users)
+      }
+    }
+  }
+
+  const sendMessage = () => {
+    const message = {
+      sender: localStorage.getItem('uuid'),
+      recipient: 'Gembul UUID', // Replace with the recipient's name (e.g., 'gembul')
+      content: 'Hello, Gembul!', // Replace with the desired message content
+    }
+    socket?.send(JSON.stringify(message))
+    // } else {
+    //   console.log('WebSocket connection not open')
+    // }
   }
 
   return token ? (
@@ -46,20 +93,36 @@ const Home: React.FC = () => {
 
           <div className="flex flex-col mt-8">
             <div className="flex flex-row items-center justify-between text-xs">
-              <span className="font-bold">Active Conversations</span>
+              <span className="font-bold">Online Users</span>
             </div>
             <div className="flex flex-col mt-4">
-              <button
-                className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2"
-                // onClick={() => {
-                //   sendMessage()
-                // }}
-              >
-                <div className="flex items-center justify-center h-8 w-8 bg-indigo-200 rounded-full">
-                  H
-                </div>
-                <div className="ml-2 text-sm font-semibold">Henry Boyd</div>
-              </button>
+              {users.map((item, index) => {
+                return item.uuid !== uuid ? (
+                  <button
+                    onClick={sendMessage}
+                    key={index}
+                    className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2"
+                  >
+                    <div className="relative">
+                      <img
+                        src="https://images.unsplash.com/photo-1624669240815-815a23372f37?"
+                        alt="baby with headphones"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <span
+                        className={`absolute h-3 w-3 rounded-full  border-2 border-gray-500 top-0 right-0 ${
+                          item.status === 'online'
+                            ? 'bg-green-500'
+                            : 'bg-red-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="ml-2 text-sm font-semibold">
+                      {item.name}
+                    </div>
+                  </button>
+                ) : null
+              })}
             </div>
             <div className="flex flex-row items-center justify-between text-xs mt-6">
               <span className="font-bold">Archived</span>
