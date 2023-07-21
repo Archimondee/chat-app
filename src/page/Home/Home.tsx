@@ -20,7 +20,7 @@ const Home: React.FC = () => {
     setName(localStorage.getItem('name') || '')
     setToken(localStorage.getItem('token') || '')
 
-    if (localStorage.getItem('token') === '') {
+    if (localStorage.getItem('token') === null) {
       window.location.replace('/login')
     } else {
       connectWebsocket()
@@ -34,12 +34,12 @@ const Home: React.FC = () => {
     )
 
     ws.onopen = function (res) {
-      console.log('Websocket connection established', res)
+      //console.log('Websocket connection established', res)
       setSocket(ws)
     }
 
     ws.onerror = function (event) {
-      console.log('WebSocket error:', event)
+      //console.log('WebSocket error:', event)
     }
 
     ws.onclose = function () {
@@ -57,9 +57,11 @@ const Home: React.FC = () => {
 
   const sendMessage = () => {
     const message = {
-      sender: localStorage.getItem('uuid'),
-      recipient: 'Gembul UUID', // Replace with the recipient's name (e.g., 'gembul')
-      content: 'Hello, Gembul!', // Replace with the desired message content
+      action: 'send-message',
+      //sender: sender,
+      sender: uuid,
+      recipient: 'c6011f58-6d4c-4272-9671-9fa4510b5eb8', // Replace with the recipient's name (e.g., 'gembul')
+      message: 'Hello, Gembul!', // Replace with the desired message content
     }
     socket?.send(JSON.stringify(message))
     // } else {
