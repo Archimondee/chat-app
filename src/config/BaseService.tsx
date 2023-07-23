@@ -8,7 +8,8 @@ const BaseService = (url: string, token?: string) => {
   if (token !== '') {
     headers.append('Authorization', 'Bearer ' + token)
   }
-  return wretch('http://localhost:3000/api/v1/' + url)
+  headers.append('Content-Type', 'application/json')
+  return wretch('http://localhost:5173/api/' + url)
     .errorType('json')
     .headers(headers)
     .middlewares([

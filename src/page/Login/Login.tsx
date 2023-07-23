@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import BaseService from '../../config/BaseService'
-import { redirect } from 'react-router-dom'
 
 const Login = () => {
   const [loginData, setDataLogin] = useState({ email: '', password: '' })
@@ -14,7 +13,9 @@ const Login = () => {
   }
 
   const login = async () => {
-    const res = BaseService('auth/signin').json(loginData).post() as Promise<{
+    const res = BaseService('v1/auth/signin')
+      .json(loginData)
+      .post() as Promise<{
       data: { token: string; uuid: string; email: string; name: string }
     }>
 
