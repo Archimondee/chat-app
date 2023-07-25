@@ -16,6 +16,15 @@ const Home: React.FC = () => {
     text: string
     status: string
   }[])
+  const [dataNewMessage, setDataNewMessage] = useState([{}] as {
+    id: string
+    uuid: string
+    room_id: string
+    sender: string
+    recipient: string
+    text: string
+    status: string
+  }[])
   const [newMessage, setNewMessage] = useState('')
   const messageListRef: any = useRef()
 
@@ -30,7 +39,8 @@ const Home: React.FC = () => {
   }, [dataMessage])
 
   useEffect(() => {
-    console.log('data 123', dataMessage)
+    //console.log('data 123', dataMessage)
+    checkMessageInLocal()
   }, [dataMessage])
 
   const checkUserLogin = () => {
@@ -82,18 +92,47 @@ const Home: React.FC = () => {
         }
         //console.log('data', dataMessage)
         handleNewMessage(msg)
-        //
       }
+    }
+  }
+
+  const checkMessageInLocal = () => {
+    var local = localStorage.getItem('chat') || ''
+    if (local !== '') {
+      var dataLocal = JSON.parse(local)
+
+      setDataNewMessage(dataLocal)
+    } else {
+      setDataNewMessage([])
     }
   }
 
   const handleNewMessage = useCallback(
     (message: any) => {
       setDataMessage([...dataMessage, message])
+
+      if (chat.sender !== message.recipient) {
+        var local = localStorage.getItem('chat') || ''
+
+        if (local === '') {
+          var data = JSON.stringify([message])
+          localStorage.setItem('chat', data)
+          //setDataNewMessage([message])
+        } else {
+          var dataLocal = JSON.parse(local)
+          var newData = [...dataLocal, message]
+          var data = JSON.stringify(newData)
+          localStorage.setItem('chat', data)
+          //setDataNewMessage(newData)
+        }
+      }
+
+      // var data = JSON.stringify([...dataLocal, message])
+      //
       setTimeout(() => {
         scrollMessageListToBottom()
       }, 1000)
-      console.log('data 1', dataMessage)
+      //console.log('data 1', dataMessage)
     },
     [dataMessage],
   )
@@ -104,11 +143,12 @@ const Home: React.FC = () => {
 
   const scrollMessageListToBottom = () => {
     if (messageListRef.current) {
-      console.log('data')
+      //console.log('data')
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight
-    } else {
-      console.log('loh')
     }
+    // else {
+    //   console.log('loh')
+    // }
   }
 
   const sendMessage = () => {
@@ -129,7 +169,7 @@ const Home: React.FC = () => {
         sender: message.sender,
         recipient: message.recipient,
         text: newMessage,
-        status: '',
+        status: 'not_sent',
       }
       setDataMessage([...dataMessage, data])
       setTimeout(() => {
@@ -142,6 +182,9 @@ const Home: React.FC = () => {
     var sender = localStorage.getItem('uuid') || ''
     setChat({ sender: sender, recipient: recipient })
     getDataChat(sender, recipient)
+    const newData = dataNewMessage.filter((item) => item.sender == sender)
+    setDataNewMessage(newData)
+    localStorage.setItem('chat', JSON.stringify(newData))
   }
 
   const getDataChat = async (sender: string, recipient: string) => {
@@ -163,17 +206,46 @@ const Home: React.FC = () => {
 
     const data = await res
       .then((value) => {
-        console.log('data', value)
+        //console.log('data', value)
         return value.data
       })
       .catch((error) => {
-        console.log('data', error)
+        //console.log('data', error)
         return error
       })
     setDataMessage(data)
     setTimeout(() => {
       scrollMessageListToBottom()
     }, 1000)
+  }
+
+  const RenderMessageNotification = (
+    dataMessage: {
+      id: string
+      uuid: string
+      room_id: string
+      sender: string
+      recipient: string
+      text: string
+      status: string
+    }[],
+    uuid: string,
+  ) => {
+    const data = dataMessage.filter(
+      (item) =>
+        item.sender === uuid &&
+        item.status === 'sent' &&
+        item.recipient !== chat.sender,
+    )
+    if (data.length > 0) {
+      return (
+        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-red-500 ml-5">
+          <span className="text-white font-bold text-sm">{data.length}</span>
+        </div>
+      )
+    } else {
+      return null
+    }
   }
 
   return token ? (
@@ -229,12 +301,13 @@ const Home: React.FC = () => {
                     <div className="ml-2 text-sm font-semibold">
                       {item.name}
                     </div>
+                    {RenderMessageNotification(dataNewMessage, item.uuid)}
                   </button>
                 ) : null
               })}
             </div>
             <div className="flex flex-row items-center justify-between text-xs mt-6">
-              <span className="font-bold">Archived</span>
+              <span className="font-bold">Rooms</span>
             </div>
             <div className="flex flex-col">
               <button className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2">
