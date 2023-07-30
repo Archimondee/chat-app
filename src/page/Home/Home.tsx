@@ -26,6 +26,7 @@ const Home: React.FC = () => {
     status: string
   }[])
   const [newMessage, setNewMessage] = useState('')
+  const [showModal, setShowModal] = useState(false)
   const messageListRef: any = useRef()
 
   const [chat, setChat] = useState({} as { sender: string; recipient: string })
@@ -33,13 +34,18 @@ const Home: React.FC = () => {
   const [users, setUsers] = useState(
     [] as { name: string; status: string; uuid: string; email: string }[],
   )
+  const [joinModal, setJoinModal] = useState(false)
+  const [joinRoom, setJoinRoom] = useState(
+    {} as { uuid: string; name: string; type: string },
+  )
+  const [createRoom, setCreateRoom] = useState({ name: '', type: 'public' })
+  const [rooms, setRooms] = useState(
+    [] as { uuid: string; name: string; type: string }[],
+  )
 
   useEffect(() => {
     checkUserLogin()
-  }, [dataMessage])
-
-  useEffect(() => {
-    //console.log('data 123', dataMessage)
+    getDataRoom()
     checkMessageInLocal()
   }, [dataMessage])
 
@@ -248,6 +254,120 @@ const Home: React.FC = () => {
     }
   }
 
+  const getDataRoom = async () => {
+    const token = localStorage.getItem('token') || ''
+    const res = BaseService(`v1/rooms`, token).get() as Promise<{
+      data: { uuid: string; name: string; type: string }[]
+    }>
+
+    const data = await res
+      .then((value) => {
+        //console.log('data', value)
+        return value.data
+      })
+      .catch((error) => {
+        //console.log('data', error)
+        return error
+      })
+    setRooms(data)
+  }
+
+  const handleRoomChange = (event: any) => {
+    setCreateRoom({ name: event.target.value, type: createRoom.type })
+  }
+
+  const submitRoom = async () => {
+    const token = localStorage.getItem('token') ?? ''
+
+    const res = BaseService('/v1/rooms/create', token)
+      .json(createRoom)
+      .headers({ Authorization: 'Bearer ' + token })
+      .post() as Promise<{
+      data: {
+        uuid: string
+        name: string
+        type: string
+      }
+    }>
+
+    const data = await res
+      .then((value) => {
+        return value.data
+      })
+      .catch((error) => {
+        return error
+      })
+
+    if (data) {
+      setRooms([...rooms, data])
+    }
+    setShowModal(false)
+  }
+
+  const checkRoom = async (room: {
+    uuid: string
+    name: string
+    type: string
+  }) => {
+    const token = localStorage.getItem('token') ?? ''
+    const uuid = localStorage.getItem('uuid') ?? ''
+    const dataPost = {
+      user_id: uuid,
+      room_id: room.uuid,
+    }
+    const res = BaseService('/v1/rooms/check', token)
+      .json(dataPost)
+      .headers({ Authorization: 'Bearer ' + token })
+      .post() as Promise<{
+      data: {
+        joined: boolean
+      }
+    }>
+
+    const data = await res
+      .then((value) => {
+        return value.data
+      })
+      .catch((error) => {
+        return error
+      })
+
+    if (data.joined) {
+    } else {
+      setJoinRoom(room)
+      setJoinModal(true)
+    }
+  }
+
+  const userJoinRoom = async () => {
+    const token = localStorage.getItem('token') ?? ''
+    const uuid = localStorage.getItem('uuid') ?? ''
+    const dataPost = {
+      user_id: uuid,
+      room_id: joinRoom.uuid,
+    }
+    const res = BaseService('/v1/rooms/join', token)
+      .json(dataPost)
+      .headers({ Authorization: 'Bearer ' + token })
+      .post() as Promise<{
+      data: {
+        joined: boolean
+      }
+    }>
+
+    const data = await res
+      .then((value) => {
+        return value.data
+      })
+      .catch((error) => {
+        return error
+      })
+
+    if (data) {
+      setJoinModal(false)
+    }
+  }
+
   return token ? (
     <div className="flex h-screen antialiased text-gray-800">
       <div className="flex flex-row h-full w-full overflow-x-hidden">
@@ -269,7 +389,12 @@ const Home: React.FC = () => {
                 ></path>
               </svg>
             </div>
-            <div className="ml-2 font-bold text-2xl">QuickChat</div>
+            <div
+              className="ml-2 font-bold text-2xl"
+              onClick={() => setShowModal(true)}
+            >
+              QuickChat
+            </div>
           </div>
 
           <div className="flex flex-col mt-8">
@@ -285,11 +410,14 @@ const Home: React.FC = () => {
                     className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2"
                   >
                     <div className="relative">
-                      <img
+                      {/* <img
                         src="https://images.unsplash.com/photo-1624669240815-815a23372f37?"
                         alt="baby with headphones"
                         className="w-10 h-10 rounded-full object-cover"
-                      />
+                      /> */}
+                      <div className="flex items-center justify-center h-8 w-8 bg-indigo-200 rounded-full">
+                        {item.name.charAt(0)}
+                      </div>
                       <span
                         className={`absolute h-3 w-3 rounded-full  border-2 border-gray-500 top-0 right-0 ${
                           item.status === 'online'
@@ -308,14 +436,27 @@ const Home: React.FC = () => {
             </div>
             <div className="flex flex-row items-center justify-between text-xs mt-6">
               <span className="font-bold">Rooms</span>
+              <span className="font-bold" onClick={() => setShowModal(true)}>
+                Create
+              </span>
             </div>
             <div className="flex flex-col">
-              <button className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2">
-                <div className="flex items-center justify-center h-8 w-8 bg-indigo-200 rounded-full">
-                  H
-                </div>
-                <div className="ml-2 text-sm font-semibold">Henry Boyd</div>
-              </button>
+              {rooms?.map((item, index) => {
+                return (
+                  <button
+                    key={index}
+                    className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2"
+                    onClick={() => checkRoom(item)}
+                  >
+                    <div className="flex items-center justify-center h-8 w-8 bg-indigo-200 rounded-full">
+                      {item.name.charAt(0)}
+                    </div>
+                    <div className="ml-2 text-sm font-semibold">
+                      {item.name}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -400,6 +541,122 @@ const Home: React.FC = () => {
           </div>
         ) : null}
       </div>
+      {joinModal && (
+        <div className="fixed top-0 right-0 bottom-0 left-0 bg-gray-700 bg-opacity-75 flex justify-center items-center">
+          <div className="w-11/12 md:w-2/3 max-w-lg">
+            <div className="relative py-8 px-5 md:px-10 bg-white shadow-md rounded border border-gray-400">
+              <h1 className="text-gray-800 text-lg font-bold tracking-normal leading-tight mb-2">
+                Join Room
+              </h1>
+              <label
+                htmlFor="name"
+                className="text-gray-800 text-sm leading-tight tracking-normal"
+              >
+                Are you sure to join{' '}
+                <span className="font-bold">{joinRoom.name}</span>
+              </label>
+              <div className="flex items-center justify-start w-full mt-[20px]">
+                <button
+                  onClick={userJoinRoom}
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-700 transition duration-150 ease-in-out hover:bg-indigo-600 bg-indigo-700 rounded text-white px-8 py-2 text-sm"
+                >
+                  Submit
+                </button>
+                <button
+                  onClick={() => setJoinModal(false)}
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2  focus:ring-gray-400 ml-3 bg-gray-100 transition duration-150 text-gray-600 ease-in-out hover:border-gray-400 hover:bg-gray-300 border rounded px-8 py-2 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+              <button
+                className="cursor-pointer bg-white absolute top-0 right-0 mt-4 mr-5 text-gray-400 hover:text-gray-600 transition duration-150 ease-in-out rounded focus:ring-2 focus:outline-none focus:ring-gray-600"
+                aria-label="close modal"
+                role="button"
+                onClick={() => setJoinModal(false)}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="icon icon-tabler icon-tabler-x"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2.5"
+                  stroke="currentColor"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showModal && (
+        <div className="fixed top-0 right-0 bottom-0 left-0 bg-gray-700 bg-opacity-75 flex justify-center items-center">
+          <div className="w-11/12 md:w-2/3 max-w-lg">
+            <div className="relative py-8 px-5 md:px-10 bg-white shadow-md rounded border border-gray-400">
+              <h1 className="text-gray-800 text-lg font-bold tracking-normal leading-tight mb-4">
+                Create Room
+              </h1>
+              <label
+                htmlFor="name"
+                className="text-gray-800 text-sm font-bold leading-tight tracking-normal"
+              >
+                Room Name
+              </label>
+              <input
+                id="name"
+                className="mb-5 mt-2 bg-white text-gray-600 focus:outline-none focus:border focus:border-indigo-700 font-normal w-full h-10 flex items-center pl-3 text-sm border-gray-300 rounded border"
+                placeholder={'Name'}
+                onChange={handleRoomChange}
+              />
+
+              <div className="flex items-center justify-start w-full">
+                <button
+                  onClick={submitRoom}
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-700 transition duration-150 ease-in-out hover:bg-indigo-600 bg-indigo-700 rounded text-white px-8 py-2 text-sm"
+                >
+                  Submit
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2  focus:ring-gray-400 ml-3 bg-gray-100 transition duration-150 text-gray-600 ease-in-out hover:border-gray-400 hover:bg-gray-300 border rounded px-8 py-2 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+              <button
+                className="cursor-pointer bg-white absolute top-0 right-0 mt-4 mr-5 text-gray-400 hover:text-gray-600 transition duration-150 ease-in-out rounded focus:ring-2 focus:outline-none focus:ring-gray-600"
+                aria-label="close modal"
+                role="button"
+                onClick={() => setShowModal(false)}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="icon icon-tabler icon-tabler-x"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2.5"
+                  stroke="currentColor"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   ) : null
 }
