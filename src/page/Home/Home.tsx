@@ -29,7 +29,15 @@ const Home: React.FC = () => {
   const [showModal, setShowModal] = useState(false)
   const messageListRef: any = useRef()
 
-  const [chat, setChat] = useState({} as { sender: string; recipient: string })
+  const [chat, setChat] = useState({
+    sender: '',
+    recipient: '',
+    isGroup: false,
+  } as {
+    sender: string
+    recipient: string
+    isGroup: boolean
+  })
 
   const [users, setUsers] = useState(
     [] as { name: string; status: string; uuid: string; email: string }[],
@@ -98,6 +106,8 @@ const Home: React.FC = () => {
         }
         //console.log('data', dataMessage)
         handleNewMessage(msg)
+      } else if (data?.action === 'send-group-message') {
+        console.log('data', data)
       }
     }
   }
@@ -159,24 +169,48 @@ const Home: React.FC = () => {
 
   const sendMessage = () => {
     if (newMessage !== '') {
-      const message = {
-        action: 'send-message',
-        //sender: sender,
-        sender: chat.sender,
-        recipient: chat.recipient, // Replace with the recipient's name (e.g., 'gembul')
-        message: newMessage, // Replace with the desired message content
+      var message: any = {}
+      var data: any = {}
+      if (chat.isGroup) {
+        message = {
+          action: 'send-group-message',
+          //sender: sender,
+          room_id: chat.recipient,
+          sender: chat.sender,
+          recipient: '', // Replace with the recipient's name (e.g., 'gembul')
+          message: newMessage, // Replace with the desired message content
+        }
+        data = {
+          id: '',
+          uuid: '',
+          room_id: message?.recipient,
+          sender: message.sender,
+          recipient: '',
+          text: newMessage,
+          status: 'not_sent',
+        }
+      } else {
+        message = {
+          action: 'send-message',
+          //sender: sender,
+          sender: chat.sender,
+          recipient: chat.recipient, // Replace with the recipient's name (e.g., 'gembul')
+          message: newMessage, // Replace with the desired message content
+        }
+        data = {
+          id: '',
+          uuid: '',
+          room_id: '',
+          sender: message.sender,
+          recipient: message.recipient,
+          text: newMessage,
+          status: 'not_sent',
+        }
       }
+
       socket?.send(JSON.stringify(message))
       setNewMessage('')
-      const data = {
-        id: '',
-        uuid: '',
-        room_id: '',
-        sender: message.sender,
-        recipient: message.recipient,
-        text: newMessage,
-        status: 'not_sent',
-      }
+
       setDataMessage([...dataMessage, data])
       setTimeout(() => {
         scrollMessageListToBottom()
@@ -186,7 +220,8 @@ const Home: React.FC = () => {
 
   const setData = (recipient: string) => {
     var sender = localStorage.getItem('uuid') || ''
-    setChat({ sender: sender, recipient: recipient })
+    setDataMessage([])
+    setChat({ sender: sender, recipient: recipient, isGroup: false })
     getDataChat(sender, recipient)
     const newData = dataNewMessage.filter((item) => item.sender == sender)
     setDataNewMessage(newData)
@@ -269,6 +304,7 @@ const Home: React.FC = () => {
         //console.log('data', error)
         return error
       })
+
     setRooms(data)
   }
 
@@ -309,6 +345,7 @@ const Home: React.FC = () => {
     name: string
     type: string
   }) => {
+    setDataMessage([])
     const token = localStorage.getItem('token') ?? ''
     const uuid = localStorage.getItem('uuid') ?? ''
     const dataPost = {
@@ -331,10 +368,14 @@ const Home: React.FC = () => {
       .catch((error) => {
         return error
       })
-
+    setJoinRoom(room)
+    setChat({ recipient: room.uuid, isGroup: true } as {
+      recipient: string
+      sender: string
+      isGroup: boolean
+    })
     if (data.joined) {
     } else {
-      setJoinRoom(room)
       setJoinModal(true)
     }
   }
@@ -461,7 +502,7 @@ const Home: React.FC = () => {
           </div>
         </div>
 
-        {chat?.recipient ? (
+        {chat?.recipient !== '' ? (
           <div className="flex flex-col flex-auto h-full p-6">
             <div className="flex flex-col flex-auto flex-shrink-0 rounded-2xl bg-gray-100 h-full p-4">
               <div
