@@ -33,10 +33,12 @@ const Home: React.FC = () => {
     sender: '',
     recipient: '',
     isGroup: false,
+    name: '',
   } as {
     sender: string
     recipient: string
     isGroup: boolean
+    name: string
   })
 
   const [users, setUsers] = useState(
@@ -107,7 +109,17 @@ const Home: React.FC = () => {
         //console.log('data', dataMessage)
         handleNewMessage(msg)
       } else if (data?.action === 'send-group-message') {
-        console.log('data', data)
+        const msg = {
+          id: data?.id,
+          uuid: data?.uuid,
+          room_id: data.room_id,
+          sender: data?.sender,
+          recipient: data?.recipient,
+          text: data?.message,
+          status: data?.status,
+        }
+
+        handleNewMessage(msg)
       }
     }
   }
@@ -125,23 +137,63 @@ const Home: React.FC = () => {
 
   const handleNewMessage = useCallback(
     (message: any) => {
-      setDataMessage([...dataMessage, message])
+      console.log('data', message, chat)
+      // if (
+      //   message.room_id === chat?.recipient
+      //   //||
+      //   //(message.recipient === chat.sender && message.room_id === '')
+      // ) {
+      var local = localStorage.getItem('chat') || ''
 
-      if (chat.sender !== message.recipient) {
-        var local = localStorage.getItem('chat') || ''
+      if (local === '') {
+        var data = JSON.stringify([message])
+        localStorage.setItem('chat', data)
+        //setDataNewMessage([message])
+        checkMessageInLocal()
+      } else {
+        var dataLocal = JSON.parse(local)
+        var newData = [...dataLocal, message]
+        var data = JSON.stringify(newData)
+        localStorage.setItem('chat', data)
+        //setDataNewMessage(newData)
+        checkMessageInLocal()
+      }
+      if (message.room_id !== '') {
+        const msg = dataMessage.filter(
+          (item) => item.room_id === message.room_id,
+        )
+        if (msg.length > 0) {
+          setDataMessage([...dataMessage, message])
+        }
+      } else {
+        const msg = dataMessage.filter(
+          (item) =>
+            item.recipient === message.recipient &&
+            item.room_id === '00000000-0000-0000-0000-000000000000',
+        )
+        if (msg.length > 0) {
+          setDataMessage([...dataMessage, message])
+          // var local = localStorage.getItem('chat') || ''
 
-        if (local === '') {
-          var data = JSON.stringify([message])
-          localStorage.setItem('chat', data)
-          //setDataNewMessage([message])
-        } else {
-          var dataLocal = JSON.parse(local)
-          var newData = [...dataLocal, message]
-          var data = JSON.stringify(newData)
-          localStorage.setItem('chat', data)
-          //setDataNewMessage(newData)
+          // if (local === '') {
+          //   var data = JSON.stringify([message])
+          //   localStorage.setItem('chat', data)
+          //   setDataNewMessage([message])
+          // } else {
+          //   var dataLocal = JSON.parse(local)
+          //   var newData = [...dataLocal, message]
+          //   var data = JSON.stringify(newData)
+          //   localStorage.setItem('chat', data)
+          //   setDataNewMessage(newData)
+          // }
         }
       }
+
+      //}
+
+      //if (chat.sender !== message.recipient) {
+
+      //}
 
       // var data = JSON.stringify([...dataLocal, message])
       //
@@ -172,11 +224,12 @@ const Home: React.FC = () => {
       var message: any = {}
       var data: any = {}
       if (chat.isGroup) {
+        const uuid = localStorage.getItem('uuid')
         message = {
           action: 'send-group-message',
           //sender: sender,
           room_id: chat.recipient,
-          sender: chat.sender,
+          sender: uuid,
           recipient: '', // Replace with the recipient's name (e.g., 'gembul')
           message: newMessage, // Replace with the desired message content
         }
@@ -210,30 +263,51 @@ const Home: React.FC = () => {
 
       socket?.send(JSON.stringify(message))
       setNewMessage('')
-
       setDataMessage([...dataMessage, data])
+
       setTimeout(() => {
         scrollMessageListToBottom()
       }, 1000)
     }
   }
 
-  const setData = (recipient: string) => {
+  const setData = (recipient: string, room_id: string, name: string) => {
     var sender = localStorage.getItem('uuid') || ''
     setDataMessage([])
-    setChat({ sender: sender, recipient: recipient, isGroup: false })
-    getDataChat(sender, recipient)
-    const newData = dataNewMessage.filter((item) => item.sender == sender)
-    setDataNewMessage(newData)
-    localStorage.setItem('chat', JSON.stringify(newData))
+    setChat({
+      sender: sender,
+      recipient: recipient,
+      isGroup: false,
+      name: name,
+    })
+    getDataChat(sender, recipient, room_id)
+    if (room_id === '') {
+      const newData = dataNewMessage.filter(
+        (item) => item.sender !== sender && item.room_id !== '',
+      )
+
+      setDataNewMessage(newData)
+      localStorage.setItem('chat', JSON.stringify(newData))
+    } else {
+      const newData = dataNewMessage.filter((item) => item.room_id !== room_id)
+      setDataNewMessage(newData)
+      localStorage.setItem('chat', JSON.stringify(newData))
+    }
   }
 
-  const getDataChat = async (sender: string, recipient: string) => {
+  const getDataChat = async (
+    sender: string,
+    recipient: string,
+    room_id: string,
+  ) => {
     const token = localStorage.getItem('token') || ''
-    const res = BaseService(
-      `v1/chat?sender=${sender}&recipient=${recipient}`,
-      token,
-    ).get() as Promise<{
+    var link
+    if (room_id === '') {
+      link = `v1/chat?sender=${sender}&recipient=${recipient}`
+    } else {
+      link = `v1/chat?room_id=${room_id}`
+    }
+    const res = BaseService(link, token).get() as Promise<{
       data: {
         id: string
         uuid: string
@@ -254,6 +328,7 @@ const Home: React.FC = () => {
         //console.log('data', error)
         return error
       })
+
     setDataMessage(data)
     setTimeout(() => {
       scrollMessageListToBottom()
@@ -271,13 +346,21 @@ const Home: React.FC = () => {
       status: string
     }[],
     uuid: string,
+    isGroup: boolean,
   ) => {
-    const data = dataMessage.filter(
-      (item) =>
-        item.sender === uuid &&
-        item.status === 'sent' &&
-        item.recipient !== chat.sender,
-    )
+    var data: any
+    if (!isGroup) {
+      data = dataMessage.filter(
+        (item) =>
+          item.sender === uuid &&
+          item.status === 'sent' &&
+          item.room_id === '' &&
+          item.recipient !== chat.sender,
+      )
+    } else {
+      data = dataMessage.filter((item) => item.room_id === uuid)
+    }
+
     if (data.length > 0) {
       return (
         <div className="flex items-center justify-center h-6 w-6 rounded-full bg-red-500 ml-5">
@@ -369,12 +452,15 @@ const Home: React.FC = () => {
         return error
       })
     setJoinRoom(room)
-    setChat({ recipient: room.uuid, isGroup: true } as {
-      recipient: string
-      sender: string
-      isGroup: boolean
-    })
+
     if (data.joined) {
+      setData('', room.uuid, '')
+      setChat({ recipient: room.uuid, isGroup: true, name: room.name } as {
+        recipient: string
+        sender: string
+        isGroup: boolean
+        name: string
+      })
     } else {
       setJoinModal(true)
     }
@@ -446,7 +532,7 @@ const Home: React.FC = () => {
               {users.map((item, index) => {
                 return item.uuid !== uuid ? (
                   <button
-                    onClick={() => setData(item.uuid)}
+                    onClick={() => setData(item.uuid, '', item.name)}
                     key={index}
                     className="flex flex-row items-center bg-gray-100 hover:bg-gray-100 rounded-xl p-2 my-2"
                   >
@@ -470,7 +556,11 @@ const Home: React.FC = () => {
                     <div className="ml-2 text-sm font-semibold">
                       {item.name}
                     </div>
-                    {RenderMessageNotification(dataNewMessage, item.uuid)}
+                    {RenderMessageNotification(
+                      dataNewMessage,
+                      item.uuid,
+                      false,
+                    )}
                   </button>
                 ) : null
               })}
@@ -495,6 +585,7 @@ const Home: React.FC = () => {
                     <div className="ml-2 text-sm font-semibold">
                       {item.name}
                     </div>
+                    {RenderMessageNotification(dataNewMessage, item.uuid, true)}
                   </button>
                 )
               })}
@@ -504,13 +595,14 @@ const Home: React.FC = () => {
 
         {chat?.recipient !== '' ? (
           <div className="flex flex-col flex-auto h-full p-6">
+            <div className="text-center"> Chat to : {chat?.name} </div>
             <div className="flex flex-col flex-auto flex-shrink-0 rounded-2xl bg-gray-100 h-full p-4">
               <div
                 className="flex flex-col h-full overflow-x-auto mb-4 scroll-auto"
                 ref={messageListRef}
               >
                 <div className="flex flex-col h-full">
-                  {dataMessage?.map((item, index) => {
+                  {dataMessage.map((item, index) => {
                     return item.sender === localStorage.getItem('uuid') ? (
                       <div
                         key={index}
@@ -530,7 +622,7 @@ const Home: React.FC = () => {
                         <div className="col-start-1 col-end-8 p-3 rounded-lg">
                           <div className="flex flex-row items-center">
                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 flex-shrink-0">
-                              A
+                              B
                             </div>
                             <div className="relative ml-3 text-sm bg-white py-2 px-4 shadow rounded-xl">
                               <div>{item.text}</div>

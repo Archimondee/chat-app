@@ -5,7 +5,7 @@ import wretch from 'wretch'
 const BaseService = (url: string, token?: string) => {
   const headers = new Headers()
   headers.append('Accept', 'application/json')
-  console.log('data', token)
+
   if (token !== '') {
     headers.append('Authorization', 'Bearer ' + token)
   }
